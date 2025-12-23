@@ -1,0 +1,93 @@
++---------------------------+
+|           USER            |
+|   (Task + Instructions)   |
++-------------+-------------+
+              |
+              v
++--------------------------------------+
+|        GRADIO UI (app.py)             |
+|  - Message Input                      |
+|  - Success Criteria Input             |
+|  - Chat History                       |
++-------------+------------------------+
+              |
+              v
++--------------------------------------+
+|      INITIAL STATE CREATION           |
+|--------------------------------------|
+| messages = [HumanMessage]             |
+| success_criteria = user defined       |
+| success_criteria_met = False          |
+| user_input_needed = False             |
+| feedback_on_work = None               |
++-------------+------------------------+
+              |
+              v
++--------------------------------------+
+|        LANGGRAPH STATE GRAPH          |
+|        (Sidekick.build_graph)         |
++-------------+------------------------+
+              |
+              v
++--------------------------------------+
+|            WORKER NODE                |
+|--------------------------------------|
+| LLM: Qwen 80B                         |
+| Role: Task Executor                   |
+|--------------------------------------|
+| - Reads user message                  |
+| - Reads success criteria              |
+| - Uses previous evaluator feedback    |
+| - Decides next action                 |
++-------------+------------------------+
+              |
+              v
++--------------------------------------+
+|          WORKER ROUTER                |
+|--------------------------------------|
+| Does the last response contain        |
+| tool_calls ?                          |
++-------------+------------+-----------+
+              |            |
+     (YES → Tools)      (NO → Evaluator)
+              |            |
+              v            v
++---------------------+   +--------------------------------------+
+|     TOOL NODE       |   |           EVALUATOR NODE              |
+|---------------------|   |--------------------------------------|
+| Playwright Browser  |   | LLM: Kimi K2                          |
+| Web Search (Serper) |   | Role: Quality Controller              |
+| Wikipedia           |   |--------------------------------------|
+| Python REPL         |   | - Reads full conversation             |
+| File Management     |   | - Compares with success criteria      |
+| Push Notification   |   | - Decides pass / retry / clarify      |
++----------+----------+   +-------------+------------------------+
+           |                            |
+           |                            v
+           |              +--------------------------------------+
+           |              |        EVALUATOR OUTPUT (JSON)       |
+           |              |--------------------------------------|
+           |              | feedback : single-line string        |
+           |              | success_criteria_met : true/false   |
+           |              | user_input_needed : true/false      |
+           |              +-------------+------------------------+
+           |                            |
+           |                            v
+           |              +--------------------------------------+
+           |              |     ROUTE BASED ON EVALUATION        |
+           |              +-------------+------------+----------+
+           |                            |            |
+           |          (Retry Needed) <--+            +--> (END)
+           |                            |
+           v                            v
++--------------------------------------+ 
+|        WORKER NODE (RETRY LOOP)       |
+|--------------------------------------|
+| - Receives evaluator feedback        |
+| - Corrects mistakes                  |
+| - Improves answer                    |
+| - Tries again                        |
++--------------------------------------+
+
+                    FINAL OUTPUT
+        (Answer + Evaluator Feedback shown to user)
